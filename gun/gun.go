@@ -6,8 +6,6 @@ import (
 	"mgun/target"
 	"github.com/cheggaaa/pb"
 	"runtime"
-	"net/http/httputil"
-	"fmt"
 )
 
 func Shoot(trgt *target.Target) {
@@ -18,7 +16,7 @@ func Shoot(trgt *target.Target) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// считаем кол-во результатов
-	hitCount := trgt.GetConcurrency() * trgt.GetLoopCount() * len(trgt.Shots)
+	hitCount := trgt.Concurrency * trgt.LoopCount * len(trgt.Shots)
 
 	// создаем програсс бар
 	bar := pb.StartNew(hitCount)
@@ -28,11 +26,11 @@ func Shoot(trgt *target.Target) {
 
 	// запускаем повторения заданий, если в настройках не указано кол-во повторений,
 	// тогда программа сделает одно повторение
-	for i := 0; i < trgt.GetLoopCount(); i++ {
-		group.Add(hitCount / trgt.GetLoopCount())
+	for i := 0; i < trgt.LoopCount; i++ {
+		group.Add(hitCount / trgt.LoopCount)
 		// запускаем конкуретные задания, если в настройках не указано кол-во заданий,
 		// тогда программа сделает одно задание
-		for j := 0; j < trgt.GetConcurrency(); j++ {
+		for j := 0; j < trgt.Concurrency; j++ {
 			bullets := make(chan *target.Bullet, len(trgt.Shots))
 
 			worker := new(Gun).
@@ -89,12 +87,12 @@ func (this *Gun) Fire() {
 		hit.Shot = bullet.Shot
 		hit.Request = bullet.Request
 		hit.StartTime = time.Now()
-		dump, _ := httputil.DumpRequest(bullet.Request, true)
-		fmt.Println(string(dump))
+//		dump, _ := httputil.DumpRequest(bullet.Request, true)
+//		fmt.Println(string(dump))
 		resp, err := bullet.Client.Do(bullet.Request)
 		if err == nil {
-			dump, _ := httputil.DumpResponse(resp, true)
-			fmt.Println(string(dump))
+//			dump, _ := httputil.DumpResponse(resp, true)
+//			fmt.Println(string(dump))
 			resp.Body.Close()
 			hit.Response = resp
 		} else {

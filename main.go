@@ -21,10 +21,13 @@ func main() {
 	if len(file) > 0 {
 		bytes, err := ioutil.ReadFile(file)
 		if err == nil {
-			target := target.New()
-			err := yaml.Unmarshal(bytes, target)
+			newTarget := target.New()
+			err := yaml.Unmarshal(bytes, newTarget)
 			if err == nil {
-				gun.Shoot(target)
+				err := newTarget.Check()
+				if err == nil {
+					gun.Shoot(newTarget)
+				}
 			} else {
 				fmt.Println(err)
 			}

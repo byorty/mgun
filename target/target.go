@@ -3,10 +3,12 @@ package target
 import (
 	"fmt"
 	"time"
+	"errors"
 )
 
 const (
 	HTTP_SCHEME = "http"
+	HTTPS_SCHEME = "https"
 	GET_METHOD = "GET"
 	POST_METHOD = "POST"
 	PUT_METHOD = "PUT"
@@ -18,7 +20,6 @@ func New() *Target {
 }
 
 type Target struct {
-	preparedHost string
 	Concurrency  int
 	LoopCount    int                     `yaml:"loopCount"`
 	Timeout      time.Duration
@@ -29,48 +30,38 @@ type Target struct {
 	Shots       []*Shot                  `yaml:"requests"`
 }
 
-func (this *Target) GetScheme() string {
+func (this *Target) Check() error {
+	if len(this.Scheme) > 0 && (this.Scheme != HTTP_SCHEME && this.Scheme != HTTPS_SCHEME) {
+		return errors.New("invalid scheme")
+	}
+
+	if len(this.Host) == 0 {
+		return errors.New("invalid host")
+	}
+
 	if len(this.Scheme) == 0 {
 		this.Scheme = HTTP_SCHEME
 	}
-	return this.Scheme
-}
 
-func (this *Target) GetHost() string {
-	if len(this.preparedHost) == 0 {
-		if this.GetPort() != 80 {
-			this.preparedHost = fmt.Sprintf("%s:%d", this.Host, this.Port)
-		} else {
-			this.preparedHost = this.Host
-		}
+	if this.Port != 0 && this.Port != 80 {
+		this.Host = fmt.Sprintf("%s:%d", this.Host, this.Port)
 	}
-	return this.preparedHost
-}
 
-func (this *Target) GetPort() int {
-	if this.Port == 0 {
-		this.Port = 80
-	}
-	return this.Port
-}
-
-func (this *Target) GetConcurrency() int {
-	if this.Concurrency == 0 {
-		this.Concurrency = 1
-	}
-	return this.Concurrency
-}
-
-func (this *Target) GetLoopCount() int {
 	if this.LoopCount == 0 {
 		this.LoopCount = 1
 	}
-	return this.LoopCount
-}
 
-func (this *Target) GetTimeout() time.Duration {
+	if this.Concurrency == 0 {
+		this.Concurrency = 1
+	}
+
 	if this.Timeout == 0 {
 		this.Timeout = 2
 	}
-	return this.Timeout
+
+	if len(this.Shots) == 0 {
+		this.Shots = append(this.Shots, &Shot{Get: "/"})
+	}
+
+	return nil
 }

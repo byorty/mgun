@@ -46,7 +46,7 @@ func (this *Cage) Сharge() {
 		if shot.Timeout > 0 {
 			timeout = shot.Timeout
 		} else {
-			timeout = this.target.GetTimeout()
+			timeout = this.target.Timeout
 		}
 
 		client.Transport = &http.Transport{
@@ -61,8 +61,8 @@ func (this *Cage) Сharge() {
 		bullet.Client = client
 
 		reqUrl := new(url.URL)
-		reqUrl.Scheme = this.target.GetScheme()
-		reqUrl.Host = this.target.GetHost()
+		reqUrl.Scheme = this.target.Scheme
+		reqUrl.Host = this.target.Host
 
 		path := shot.GetPath()
 		pathParts := strings.Split(path, "?")
