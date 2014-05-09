@@ -1,7 +1,7 @@
 package gun
 
 import (
-	"mgun/work"
+	"mgun/target"
 	"net/http"
 	"net/url"
 	"reflect"
@@ -11,21 +11,21 @@ import (
 	"net/http/cookiejar"
 	"code.google.com/p/go.net/publicsuffix"
 	"fmt"
-	"net"
 	"time"
+	"net"
 )
 
 type Cage struct {
-	target *work.Target
-	bullets chan <- *work.Bullet
+	target *target.Target
+	bullets chan <- *target.Bullet
 }
 
-func (this *Cage) SetTarget(target *work.Target) *Cage {
+func (this *Cage) SetTarget(target *target.Target) *Cage {
 	this.target = target
 	return this
 }
 
-func (this *Cage) SetBullets(bullets chan <- *work.Bullet) *Cage {
+func (this *Cage) SetBullets(bullets chan <- *target.Bullet) *Cage {
 	this.bullets = bullets
 	return this
 }
@@ -39,16 +39,24 @@ func (this *Cage) Сharge() {
 		fmt.Println(err)
 	}
 	client := new(http.Client)
-	client.Transport = &http.Transport{
-		Dial: func(network, addr string) (conn net.Conn, err error) {
-			return net.DialTimeout(network, addr, time.Second * this.target.GetTimeout())
-		},
-		ResponseHeaderTimeout: time.Second * this.target.GetTimeout(),
-	}
 	client.Jar = jar
 	for _, shot := range this.target.Shots {
 
-		bullet := new(work.Bullet)
+		var timeout time.Duration
+		if shot.Timeout > 0 {
+			timeout = shot.Timeout
+		} else {
+			timeout = this.target.GetTimeout()
+		}
+
+		client.Transport = &http.Transport{
+			Dial: func(network, addr string) (conn net.Conn, err error) {
+				return net.DialTimeout(network, addr, time.Second * timeout)
+			},
+			ResponseHeaderTimeout: time.Second * timeout,
+		}
+
+		bullet := new(target.Bullet)
 		bullet.Shot = shot
 		bullet.Client = client
 
@@ -79,6 +87,9 @@ func (this *Cage) Сharge() {
 
 		request, err := http.NewRequest(shot.GetMethod(), reqUrl.String(), &body)
 
+		this.setRequestHeaders(request, this.target.Headers)
+		this.setRequestHeaders(request, shot.Headers)
+
 		if shot.IsPost() {
 			request.Header.Set("Content-Type", writer.FormDataContentType())
 		}
@@ -89,4 +100,10 @@ func (this *Cage) Сharge() {
 		this.bullets <- bullet
 	}
 	close(this.bullets)
+}
+
+func (this *Cage) setRequestHeaders(request *http.Request, headers map[string] interface{}) {
+	for key, value := range headers {
+		request.Header.Set(key, reflect.ValueOf(value).String())
+	}
 }

@@ -1,4 +1,6 @@
-package work
+package target
+
+import "time"
 
 type Shot struct {
 	path    string
@@ -11,6 +13,7 @@ type Shot struct {
 	Params  map[string] interface{}
 	SuccessStatusCodes []int        `yaml:"successStatusCodes"`
 	FailedStatusCodes  []int        `yaml:"failedStatusCodes"`
+	Timeout time.Duration
 }
 
 func (this *Shot) GetMethod() string {

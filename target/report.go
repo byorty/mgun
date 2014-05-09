@@ -1,11 +1,11 @@
-package work
+package target
 
 import (
 	"math"
 	"time"
 )
 
-type TaskReport struct {
+type TargetReport struct {
 	Hostname string
 	Port int
 	Concurrency int
@@ -18,11 +18,11 @@ type TaskReport struct {
 	TotalTime float64
 }
 
-func NewStageReport(hit *Hit) *StageReport {
-	return new(StageReport).create(hit)
+func NewStageReport(hit *Hit) *ShotReport {
+	return new(ShotReport).create(hit)
 }
 
-type StageReport struct {
+type ShotReport struct {
 	count int
 	startTime time.Time
 	endTime time.Time
@@ -36,7 +36,7 @@ type StageReport struct {
 	TotalTime float64
 }
 
-func (this *StageReport) create(hit *Hit) *StageReport {
+func (this *ShotReport) create(hit *Hit) *ShotReport {
 	timeRequest := this.getDiffSeconds(hit)
 	this.MinTime = timeRequest
 	this.MaxTime = timeRequest
@@ -49,11 +49,11 @@ func (this *StageReport) create(hit *Hit) *StageReport {
 	return this
 }
 
-func (this *StageReport) getDiffSeconds(hit *Hit) float64 {
+func (this *ShotReport) getDiffSeconds(hit *Hit) float64 {
 	return hit.EndTime.Sub(hit.StartTime).Seconds()
 }
 
-func (this *StageReport) checkResponseStatusCode(hit *Hit) {
+func (this *ShotReport) checkResponseStatusCode(hit *Hit) {
 	shot := hit.Shot
 	if hit.Request != nil && hit.Response != nil {
 		statusCode := hit.Response.StatusCode
@@ -69,7 +69,7 @@ func (this *StageReport) checkResponseStatusCode(hit *Hit) {
 	}
 }
 
-func (this *StageReport) inArray(a int, array []int) bool {
+func (this *ShotReport) inArray(a int, array []int) bool {
 	for _, b := range array {
 		if a == b {
 			return true
@@ -78,17 +78,17 @@ func (this *StageReport) inArray(a int, array []int) bool {
 	return false
 }
 
-func (this *StageReport) updateCount() {
+func (this *ShotReport) updateCount() {
 	this.count++
 }
 
-func (this *StageReport) updateTotalTransferred(hit *Hit) {
+func (this *ShotReport) updateTotalTransferred(hit *Hit) {
 	if hit.Response != nil {
 		this.TotalTransferred += hit.Response.ContentLength
 	}
 }
 
-func (this *StageReport) Update(hit *Hit) *StageReport {
+func (this *ShotReport) Update(hit *Hit) *ShotReport {
 	timeRequest := this.getDiffSeconds(hit)
 	this.MinTime = math.Min(this.MinTime, timeRequest)
 	this.MaxTime = math.Max(this.MaxTime, timeRequest)
@@ -100,15 +100,15 @@ func (this *StageReport) Update(hit *Hit) *StageReport {
 	return this
 }
 
-func (this *StageReport) GetAvgTime() float64 {
+func (this *ShotReport) GetAvgTime() float64 {
 	return (this.MinTime + this.MaxTime) / 2
 }
 
-func (this *StageReport) GetAvailability() float64 {
+func (this *ShotReport) GetAvailability() float64 {
 	return float64(this.CompleteRequests) * 100 / float64(this.count)
 }
 
-func (this *StageReport) GetRequestPerSeconds() float64 {
+func (this *ShotReport) GetRequestPerSeconds() float64 {
 	if this.endTime.Equal(this.startTime) {
 		return float64(this.count)
 	} else {

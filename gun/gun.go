@@ -3,12 +3,14 @@ package gun
 import (
 	"sync"
 	"time"
-	"mgun/work"
+	"mgun/target"
 	"github.com/cheggaaa/pb"
 	"runtime"
+	"net/http/httputil"
+	"fmt"
 )
 
-func Shoot(target *work.Target) {
+func Shoot(trgt *target.Target) {
 	// создаем докладчика
 	reporter := NewReporter()
 
@@ -16,22 +18,22 @@ func Shoot(target *work.Target) {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	// считаем кол-во результатов
-	hitCount := target.GetConcurrency() * target.GetLoopCount() * len(target.Shots)
+	hitCount := trgt.GetConcurrency() * trgt.GetLoopCount() * len(trgt.Shots)
 
 	// создаем програсс бар
 	bar := pb.StartNew(hitCount)
 	group := new(sync.WaitGroup)
 	// создаем канал результатов
-	hits := make(chan *work.Hit, hitCount)
+	hits := make(chan *target.Hit, hitCount)
 
 	// запускаем повторения заданий, если в настройках не указано кол-во повторений,
 	// тогда программа сделает одно повторение
-	for i := 0; i < target.GetLoopCount(); i++ {
-		group.Add(hitCount / target.GetLoopCount())
+	for i := 0; i < trgt.GetLoopCount(); i++ {
+		group.Add(hitCount / trgt.GetLoopCount())
 		// запускаем конкуретные задания, если в настройках не указано кол-во заданий,
 		// тогда программа сделает одно задание
-		for j := 0; j < target.GetConcurrency(); j++ {
-			bullets := make(chan *work.Bullet, len(target.Shots))
+		for j := 0; j < trgt.GetConcurrency(); j++ {
+			bullets := make(chan *target.Bullet, len(trgt.Shots))
 
 			worker := new(Gun).
 				SetGroup(group).
@@ -42,7 +44,7 @@ func Shoot(target *work.Target) {
 			// создаем запросы
 			cage := new(Cage).
 				SetBullets(bullets).
-				SetTarget(target)
+				SetTarget(trgt)
 			go cage.Сharge()
 		}
 
@@ -55,18 +57,18 @@ func Shoot(target *work.Target) {
 }
 
 type Gun struct {
-	bullets <- chan *work.Bullet
-	hits chan <- *work.Hit
+	bullets <- chan *target.Bullet
+	hits chan <- *target.Hit
 	group *sync.WaitGroup
 	bar *pb.ProgressBar
 }
 
-func (this *Gun) SetBullets(bullets <- chan *work.Bullet) *Gun {
+func (this *Gun) SetBullets(bullets <- chan *target.Bullet) *Gun {
 	this.bullets = bullets
 	return this
 }
 
-func (this *Gun) SetHits(hits chan <- *work.Hit) *Gun {
+func (this *Gun) SetHits(hits chan <- *target.Hit) *Gun {
 	this.hits = hits
 	return this
 }
@@ -83,16 +85,16 @@ func (this *Gun) SetProgressBar(bar *pb.ProgressBar) *Gun {
 func (this *Gun) Fire() {
 	for bullet := range this.bullets {
 		this.bar.Increment()
-		hit := new(work.Hit)
+		hit := new(target.Hit)
 		hit.Shot = bullet.Shot
 		hit.Request = bullet.Request
 		hit.StartTime = time.Now()
-//		dump, _ := httputil.DumpRequest(target.Request, true)
-//		fmt.Println(string(dump))
+		dump, _ := httputil.DumpRequest(bullet.Request, true)
+		fmt.Println(string(dump))
 		resp, err := bullet.Client.Do(bullet.Request)
 		if err == nil {
-//			dump, _ := httputil.DumpResponse(resp, true)
-//			fmt.Println(string(dump))
+			dump, _ := httputil.DumpResponse(resp, true)
+			fmt.Println(string(dump))
 			resp.Body.Close()
 			hit.Response = resp
 		} else {

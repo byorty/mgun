@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"gopkg.in/v1/yaml"
 	"fmt"
-	"mgun/work"
+	"mgun/target"
 	"mgun/gun"
 )
 
@@ -21,7 +21,7 @@ func main() {
 	if len(file) > 0 {
 		bytes, err := ioutil.ReadFile(file)
 		if err == nil {
-			target := new(work.Target)
+			target := target.New()
 			err := yaml.Unmarshal(bytes, target)
 			if err == nil {
 				gun.Shoot(target)

@@ -1,4 +1,4 @@
-package work
+package target
 
 import (
 	"fmt"
@@ -13,6 +13,10 @@ const (
 	DELETE_METHOD = "DELETE"
 )
 
+func New() *Target {
+	return new(Target)
+}
+
 type Target struct {
 	preparedHost string
 	Concurrency  int
@@ -22,7 +26,7 @@ type Target struct {
 	Host         string
 	Port         int
 	Headers      map[string] interface{}
-	Shots       []*Shot                `yaml:"requests"`
+	Shots       []*Shot                  `yaml:"requests"`
 }
 
 func (this *Target) GetScheme() string {

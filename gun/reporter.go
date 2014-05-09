@@ -2,21 +2,21 @@ package gun
 
 import (
 	"fmt"
-	"mgun/work"
+	"mgun/target"
 	"github.com/buger/goterm"
 )
 
 func NewReporter() *Reporter {
 	reporter := new(Reporter)
-	reporter.reports = make(map[string]*work.StageReport)
+	reporter.reports = make(map[string]*target.ShotReport)
 	return reporter
 }
 
 type Reporter struct {
-	reports map[string]*work.StageReport
+	reports map[string]*target.ShotReport
 }
 
-func (this *Reporter) report(hits <- chan *work.Hit) {
+func (this *Reporter) report(hits <- chan *target.Hit) {
 	table := goterm.NewTable(0, 0, 2, ' ', 0)
 	fmt.Fprintf(table, "Path\tComplete\tFailed\tMin\tMax\tAvg\tAvailability\tRequests per second\n")
 	for hit := range hits {
@@ -24,7 +24,7 @@ func (this *Reporter) report(hits <- chan *work.Hit) {
 		if report, ok := this.reports[path]; ok {
 			report.Update(hit)
 		} else {
-			report := work.NewStageReport(hit)
+			report := target.NewStageReport(hit)
 			this.reports[path] = report
 		}
 	}
@@ -40,8 +40,6 @@ func (this *Reporter) report(hits <- chan *work.Hit) {
 			repoprt.GetRequestPerSeconds(),
 		)
 	}
-	fmt.Println()
-	fmt.Println()
-	fmt.Println(table)
+	fmt.Println("\n", table)
 }
 
