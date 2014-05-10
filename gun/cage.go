@@ -49,16 +49,15 @@ func (this *Cage) Сharge() {
 			timeout = this.target.Timeout
 		}
 
-		client.Transport = &http.Transport{
+		bullet := new(target.Bullet)
+		bullet.Shot = shot
+		bullet.Client = client
+		bullet.Transport = &http.Transport{
 			Dial: func(network, addr string) (conn net.Conn, err error) {
 				return net.DialTimeout(network, addr, time.Second * timeout)
 			},
 			ResponseHeaderTimeout: time.Second * timeout,
 		}
-
-		bullet := new(target.Bullet)
-		bullet.Shot = shot
-		bullet.Client = client
 
 		reqUrl := new(url.URL)
 		reqUrl.Scheme = this.target.Scheme

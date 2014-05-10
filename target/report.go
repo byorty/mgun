@@ -16,6 +16,7 @@ type TargetReport struct {
 	RequestsPerSecond float64
 	TotalTransferred int64
 	TotalTime float64
+	TotalShots int
 }
 
 func NewStageReport(hit *Hit) *ShotReport {
@@ -23,12 +24,11 @@ func NewStageReport(hit *Hit) *ShotReport {
 }
 
 type ShotReport struct {
-	count int
+	TotalRequests int
 	startTime time.Time
 	endTime time.Time
 	MinTime float64
 	MaxTime float64
-	AvgTime float64
 	CompleteRequests int
 	FailedRequests int
 	RequestsPerSecond float64
@@ -41,7 +41,7 @@ func (this *ShotReport) create(hit *Hit) *ShotReport {
 	this.MinTime = timeRequest
 	this.MaxTime = timeRequest
 	this.TotalTime = timeRequest
-	this.updateCount()
+	this.updateTotalRequests()
 	this.updateTotalTransferred(hit)
 	this.checkResponseStatusCode(hit)
 	this.startTime = hit.StartTime
@@ -78,8 +78,8 @@ func (this *ShotReport) inArray(a int, array []int) bool {
 	return false
 }
 
-func (this *ShotReport) updateCount() {
-	this.count++
+func (this *ShotReport) updateTotalRequests() {
+	this.TotalRequests++
 }
 
 func (this *ShotReport) updateTotalTransferred(hit *Hit) {
@@ -93,7 +93,7 @@ func (this *ShotReport) Update(hit *Hit) *ShotReport {
 	this.MinTime = math.Min(this.MinTime, timeRequest)
 	this.MaxTime = math.Max(this.MaxTime, timeRequest)
 	this.TotalTime += timeRequest
-	this.updateCount()
+	this.updateTotalRequests()
 	this.updateTotalTransferred(hit)
 	this.checkResponseStatusCode(hit)
 	this.endTime = hit.EndTime
@@ -105,13 +105,13 @@ func (this *ShotReport) GetAvgTime() float64 {
 }
 
 func (this *ShotReport) GetAvailability() float64 {
-	return float64(this.CompleteRequests) * 100 / float64(this.count)
+	return float64(this.CompleteRequests) * 100 / float64(this.TotalRequests)
 }
 
 func (this *ShotReport) GetRequestPerSeconds() float64 {
 	if this.endTime.Equal(this.startTime) {
-		return float64(this.count)
+		return float64(this.TotalRequests)
 	} else {
-		return float64(this.count) / this.endTime.Sub(this.startTime).Seconds()
+		return float64(this.TotalRequests) / this.endTime.Sub(this.startTime).Seconds()
 	}
 }

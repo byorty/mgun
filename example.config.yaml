@@ -20,6 +20,7 @@ port: 8080
 headers:
   Content-Type: text/html; charset=utf-8
   User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_2) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/34.0.1847.131 Safari/537.36 FirePHP/4Chrome
+  X-Key-1: Value-1
 
 # последовательность запросов, которые необходимо выполнить, необязательный параметр, если запросы не указаны, то программа выполнит один GET запрос на /
 requests:
@@ -38,7 +39,6 @@ requests:
   - GET: /profile
     # заголовки этого запроса, необязательный параметр
     headers:
-      X-Key-1: Value-1
+      # перезапишет значение глобального заголовка на локальное
+      X-Key-1: New-Value-1
       X-Key-2: Value-2
-
-

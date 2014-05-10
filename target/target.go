@@ -43,7 +43,11 @@ func (this *Target) Check() error {
 		this.Scheme = HTTP_SCHEME
 	}
 
-	if this.Port != 0 && this.Port != 80 {
+	if this.Port == 0 {
+		this.Port = 80
+	}
+
+	if this.Port != 80 {
 		this.Host = fmt.Sprintf("%s:%d", this.Host, this.Port)
 	}
 

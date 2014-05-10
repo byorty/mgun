@@ -1,4 +1,4 @@
-# Machine gun
+# M(achine)gun
 
 **mgun** - это инструмент тестирования нагрузки HTTP сервера.
 

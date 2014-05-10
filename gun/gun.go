@@ -8,15 +8,16 @@ import (
 	"runtime"
 )
 
-func Shoot(trgt *target.Target) {
+func Shoot(newTarget *target.Target) {
 	// создаем докладчика
 	reporter := NewReporter()
 
 	// отдаем рутинам все ядра процессора
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
+	shotCount := len(newTarget.Shots)
 	// считаем кол-во результатов
-	hitCount := trgt.Concurrency * trgt.LoopCount * len(trgt.Shots)
+	hitCount := newTarget.Concurrency * newTarget.LoopCount * shotCount
 
 	// создаем програсс бар
 	bar := pb.StartNew(hitCount)
@@ -26,12 +27,12 @@ func Shoot(trgt *target.Target) {
 
 	// запускаем повторения заданий, если в настройках не указано кол-во повторений,
 	// тогда программа сделает одно повторение
-	for i := 0; i < trgt.LoopCount; i++ {
-		group.Add(hitCount / trgt.LoopCount)
+	for i := 0; i < newTarget.LoopCount; i++ {
+		group.Add(hitCount / newTarget.LoopCount)
 		// запускаем конкуретные задания, если в настройках не указано кол-во заданий,
 		// тогда программа сделает одно задание
-		for j := 0; j < trgt.Concurrency; j++ {
-			bullets := make(chan *target.Bullet, len(trgt.Shots))
+		for j := 0; j < newTarget.Concurrency; j++ {
+			bullets := make(chan *target.Bullet, shotCount)
 
 			worker := new(Gun).
 				SetGroup(group).
@@ -42,7 +43,7 @@ func Shoot(trgt *target.Target) {
 			// создаем запросы
 			cage := new(Cage).
 				SetBullets(bullets).
-				SetTarget(trgt)
+				SetTarget(newTarget)
 			go cage.Сharge()
 		}
 
@@ -51,7 +52,7 @@ func Shoot(trgt *target.Target) {
 
 	close(hits)
 	// аггрегируем результаты задания и выводим статистику в консоль
-	reporter.report(hits)
+	reporter.report(newTarget, hits)
 }
 
 type Gun struct {
@@ -89,6 +90,7 @@ func (this *Gun) Fire() {
 		hit.StartTime = time.Now()
 //		dump, _ := httputil.DumpRequest(bullet.Request, true)
 //		fmt.Println(string(dump))
+		bullet.Client.Transport = bullet.Transport
 		resp, err := bullet.Client.Do(bullet.Request)
 		if err == nil {
 //			dump, _ := httputil.DumpResponse(resp, true)
