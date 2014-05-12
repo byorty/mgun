@@ -30,7 +30,7 @@ func (this *Cage) SetBullets(bullets chan <- *target.Bullet) *Cage {
 	return this
 }
 
-func (this *Cage) Сharge() {
+func (this *Cage) Charge() {
 	options := cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 	}

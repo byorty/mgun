@@ -1,0 +1,11 @@
+{
+    "project": "mgun",
+    "version": "0.0.1",
+    "deps": [
+        "gopkg.in/v1/yaml",
+        "github.com/buger/goterm",
+        "code.google.com/p/go.net/publicsuffix",
+        "github.com/cheggaaa/pb"
+    ],
+    "run": "{go} run src/mgun/main.go -f=./src/conf/app.yaml"
+}

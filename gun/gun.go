@@ -44,7 +44,7 @@ func Shoot(newTarget *target.Target) {
 			cage := new(Cage).
 				SetBullets(bullets).
 				SetTarget(newTarget)
-			go cage.Сharge()
+			go cage.Charge()
 		}
 
 		group.Wait()
