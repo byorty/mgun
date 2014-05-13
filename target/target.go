@@ -20,6 +20,7 @@ func New() *Target {
 }
 
 type Target struct {
+	Debug        bool
 	Concurrency  int
 	LoopCount    int                     `yaml:"loopCount"`
 	Timeout      time.Duration

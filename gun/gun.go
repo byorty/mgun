@@ -6,6 +6,9 @@ import (
 	"mgun/target"
 	"github.com/cheggaaa/pb"
 	"runtime"
+	"io/ioutil"
+	"fmt"
+	"net/http/httputil"
 )
 
 func Shoot(newTarget *target.Target) {
@@ -38,7 +41,8 @@ func Shoot(newTarget *target.Target) {
 				SetGroup(group).
 				SetProgressBar(bar).
 				SetHits(hits).
-				SetBullets(bullets)
+				SetBullets(bullets).
+				SetTarget(newTarget)
 			go worker.Fire()
 			// создаем запросы
 			cage := new(Cage).
@@ -57,9 +61,10 @@ func Shoot(newTarget *target.Target) {
 
 type Gun struct {
 	bullets <- chan *target.Bullet
-	hits chan <- *target.Hit
-	group *sync.WaitGroup
-	bar *pb.ProgressBar
+	hits    chan <- *target.Hit
+	group   *sync.WaitGroup
+	bar     *pb.ProgressBar
+	target *target.Target
 }
 
 func (this *Gun) SetBullets(bullets <- chan *target.Bullet) *Gun {
@@ -81,6 +86,11 @@ func (this *Gun) SetProgressBar(bar *pb.ProgressBar) *Gun {
 	return this
 }
 
+func (this *Gun) SetTarget(target *target.Target) *Gun {
+	this.target = target
+	return this
+}
+
 func (this *Gun) Fire() {
 	for bullet := range this.bullets {
 		this.bar.Increment()
@@ -88,15 +98,20 @@ func (this *Gun) Fire() {
 		hit.Shot = bullet.Shot
 		hit.Request = bullet.Request
 		hit.StartTime = time.Now()
-//		dump, _ := httputil.DumpRequest(bullet.Request, true)
-//		fmt.Println(string(dump))
+		if this.target.Debug {
+			dump, _ := httputil.DumpRequest(bullet.Request, true)
+			fmt.Println(string(dump))
+		}
 		bullet.Client.Transport = bullet.Transport
 		resp, err := bullet.Client.Do(bullet.Request)
 		if err == nil {
-//			dump, _ := httputil.DumpResponse(resp, true)
-//			fmt.Println(string(dump))
-			resp.Body.Close()
+			if this.target.Debug {
+				dump, _ := httputil.DumpResponse(resp, true)
+				fmt.Println(string(dump))
+			}
 			hit.Response = resp
+			hit.ResponseBody, _ = ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
 		} else {
 //			fmt.Println(err)
 		}

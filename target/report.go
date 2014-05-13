@@ -5,35 +5,22 @@ import (
 	"time"
 )
 
-type TargetReport struct {
-	Hostname string
-	Port int
-	Concurrency int
-	TotalRequests int
-	CompleteRequests int
-	FailedRequests int
-	Availability float64
-	RequestsPerSecond float64
-	TotalTransferred int64
-	TotalTime float64
-	TotalShots int
-}
-
 func NewStageReport(hit *Hit) *ShotReport {
 	return new(ShotReport).create(hit)
 }
 
 type ShotReport struct {
-	TotalRequests int
-	startTime time.Time
-	endTime time.Time
-	MinTime float64
-	MaxTime float64
-	CompleteRequests int
-	FailedRequests int
+	TotalRequests     int
+	startTime         time.Time
+	endTime           time.Time
+	MinTime           float64
+	MaxTime           float64
+	CompleteRequests  int
+	FailedRequests    int
 	RequestsPerSecond float64
-	TotalTransferred int64
-	TotalTime float64
+	TotalTransferred  int64
+	TotalTime         float64
+	ContentLength     int64
 }
 
 func (this *ShotReport) create(hit *Hit) *ShotReport {
@@ -84,7 +71,10 @@ func (this *ShotReport) updateTotalRequests() {
 
 func (this *ShotReport) updateTotalTransferred(hit *Hit) {
 	if hit.Response != nil {
-		this.TotalTransferred += hit.Response.ContentLength
+		this.TotalTransferred += int64(len(hit.ResponseBody))
+		if this.ContentLength == 0 {
+			this.ContentLength = this.TotalTransferred
+		}
 	}
 }
 

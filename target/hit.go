@@ -11,4 +11,5 @@ type Hit struct {
 	Shot *Shot
 	Request *http.Request
 	Response *http.Response
+	ResponseBody []byte
 }
