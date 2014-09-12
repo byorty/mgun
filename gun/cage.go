@@ -6,13 +6,13 @@ import (
 	"net/url"
 	"reflect"
 	"bytes"
-	"mime/multipart"
 	"strings"
 	"net/http/cookiejar"
 	"code.google.com/p/go.net/publicsuffix"
 	"fmt"
 	"time"
 	"net"
+	"mime/multipart"
 )
 
 type Cage struct {
@@ -84,14 +84,24 @@ func (this *Cage) Charge() {
 			writer.Close()
 		}
 
+//		if shot.IsPost() {
+//			params := url.Values{}
+//			for key, value := range shot.Params {
+//				params.Set(key, fmt.Sprintf("%v", value))
+//			}
+//			body.WriteString(params.Encode())
+//		}
+
 		request, err := http.NewRequest(shot.GetMethod(), reqUrl.String(), &body)
-
-		this.setRequestHeaders(request, this.target.Headers)
-		this.setRequestHeaders(request, shot.Headers)
-
+//		if shot.IsPost() {
+//			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+//		}
 		if shot.IsPost() {
 			request.Header.Set("Content-Type", writer.FormDataContentType())
 		}
+
+		this.setRequestHeaders(request, this.target.Headers)
+		this.setRequestHeaders(request, shot.Headers)
 
 		if err == nil {
 			bullet.Request = request
