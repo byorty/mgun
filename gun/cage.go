@@ -1,7 +1,7 @@
 package gun
 
 import (
-	"mgun/target"
+	"github.com/byorty/mgun/target"
 	"net/http"
 	"net/url"
 	"reflect"

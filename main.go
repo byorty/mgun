@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"gopkg.in/v1/yaml"
 	"fmt"
-	"mgun/target"
-	"mgun/gun"
+	"github.com/byorty/mgun/target"
+	"github.com/byorty/mgun/gun"
 )
 
 const (

@@ -2,7 +2,7 @@ package gun
 
 import (
 	"fmt"
-	"mgun/target"
+	"github.com/byorty/mgun/target"
 	"time"
 	hm "github.com/dustin/go-humanize"
 	tm "github.com/buger/goterm"

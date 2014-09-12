@@ -3,7 +3,7 @@ package gun
 import (
 	"sync"
 	"time"
-	"mgun/target"
+	"github.com/byorty/mgun/target"
 	"github.com/cheggaaa/pb"
 	"runtime"
 	"io/ioutil"

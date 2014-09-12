@@ -8,5 +8,5 @@
         "github.com/cheggaaa/pb",
         "github.com/dustin/go-humanize"
     ],
-    "run": "{go} run src/mgun/main.go -f=./src/conf/app.yaml"
+    "run": "{go} run src/github.com/byorty/mgun/main.go -f=./src/conf/app.yaml"
 }
