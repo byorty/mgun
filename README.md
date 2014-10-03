@@ -30,7 +30,7 @@ Mgun написан на Go, поэтому для начала необходи
 
 ### Загрузка и установка
 
-    go get https://github.com/byorty/mgun
+    go get github.com/byorty/mgun
 
 ### Компиляция и запуск
 
