@@ -20,11 +20,23 @@ func main() {
 	if len(file) > 0 {
 		bytes, err := ioutil.ReadFile(file)
 		if err == nil {
-			gun := mgun.NewGun()
-			err := yaml.Unmarshal(bytes, gun)
 
-			fmt.Println(gun)
-//			fmt.Println(gun.Calibers)
+			victim := mgun.NewVictim()
+			kill := mgun.GetKill()
+			gun := mgun.NewGun()
+			reporter := mgun.GetReporter()
+
+			err := yaml.Unmarshal(bytes, kill)
+			err = yaml.Unmarshal(bytes, victim)
+			err = yaml.Unmarshal(bytes, reporter)
+			err = yaml.Unmarshal(bytes, gun)
+
+			kill.SetVictim(victim)
+			kill.SetGun(gun)
+			kill.Prepare()
+			kill.Start()
+
+//			fmt.Println(gun)
 //			fmt.Println(gun.Cartridges)
 			if err == nil {
 				//				newTarget := target.New()
