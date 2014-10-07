@@ -4,12 +4,18 @@ import (
 	"time"
 	"regexp"
 	"fmt"
+	"math/rand"
+	"strings"
 )
 
 var (
 	arrayParamRegexp = regexp.MustCompile(`[\w\d\-\_]\[\]+`)
 	configParamRegexp = regexp.MustCompile(`\$\{([\w\d\-\_\.]+)\}`)
-//	paramRegexp = regexp.MustCompile(`([\w\d\-\_\.]+)`)
+	gun = &Gun{
+		Features: make(Features, 0),
+		Calibers: make(CaliberMap),
+		Cartridges: make(Cartridges, 0),
+	}
 )
 
 type Gun struct {
@@ -18,11 +24,7 @@ type Gun struct {
 	Cartridges   Cartridges    `yaml:"requests"`
 }
 
-func NewGun() *Gun {
-	gun := new(Gun)
-	gun.Features = make(Features, 0)
-	gun.Calibers = make(CaliberMap)
-	gun.Cartridges = make(Cartridges, 0)
+func GetGun() *Gun {
 	return gun
 }
 
@@ -33,6 +35,48 @@ func (this *Gun) prepare() {
 		this.Cartridges = append(this.Cartridges, cartridge)
 	}
 	reporter.log("cartridges count - %v", this.Cartridges)
+}
+
+func (this *Gun) findCaliber(path string) *Caliber {
+	parts := strings.Split(path, ".")
+	if caliber, ok := this.Calibers[parts[0]]; ok {
+		return this.findInCaliber(caliber, parts[1:])
+	} else {
+		return nil
+	}
+}
+
+func (this *Gun) findInCaliber(caliber *Caliber, pathParts []string) *Caliber {
+	var nextPathParts []string
+	if len(pathParts) > 1 {
+		nextPathParts = pathParts[1:]
+	} else {
+		nextPathParts = pathParts
+	}
+	switch caliber.kind {
+	case CALIBER_KIND_LIST:
+		calibers := caliber.feature.description.(CaliberList)
+		rand.Seed(time.Now().UnixNano())
+		randCaliber := calibers[rand.Intn(len(calibers)) + 0];
+		if randCaliber.kind == CALIBER_KIND_MAP {
+			return this.findInCaliber(randCaliber, nextPathParts)
+		} else {
+			return randCaliber
+		}
+	case CALIBER_KIND_MAP:
+		caliberMap := caliber.feature.description.(CaliberMap)
+		if childCaliber, ok := caliberMap[pathParts[0]]; ok {
+			return this.findInCaliber(childCaliber, nextPathParts)
+		} else {
+			return nil
+		}
+	case CALIBER_KIND_SESSION:
+		return nil
+	case CALIBER_KIND_SIMPLES:
+		return nil
+	default:
+		return caliber
+	}
 }
 
 type CaliberList []*Caliber
@@ -90,7 +134,7 @@ func (this CaliberMap) fill(rawCalibers map[interface{}]interface{}) {
 		case map[interface{}]interface{}:
 			caliberMap := make(CaliberMap)
 			caliberMap.fill(rawValue.(map[interface{}]interface{}))
-			caliber = NewCaliberByKindAndChildren(CALIBER_KIND_MAP, caliberMap)
+			caliber = NewCaliberByKindAndFeature(CALIBER_KIND_MAP, NewDescribedFeature(caliberMap))
 			break
 		default:
 			caliber = NewCaliberByKindAndFeature(CALIBER_KIND_SIMPLE, NewDescribedFeature(rawValue))
@@ -143,12 +187,6 @@ func NewCaliberByKindAndFeature(kind CaliberKind, feature *Feature) *Caliber {
 	return caliber
 }
 
-func NewCaliberByKindAndChildren(kind CaliberKind, children interface{}) *Caliber {
-	caliber := NewCaliber()
-	caliber.children = children
-	return caliber
-}
-
 type CaliberKind int
 
 const (
@@ -182,6 +220,9 @@ func (this *Cartridges) fill(rawCartridges []interface{}) {
 			case GET_METHOD, POST_METHOD, PUT_METHOD, DELETE_METHOD:
 				cartridge.path = NewNamedDescribedFeature(key, rawValue)
 				kill.shotsCount++
+				reporter.ln()
+				reporter.log("shots count: %v", kill.shotsCount)
+				reporter.ln()
 				break;
 			case RANDOM_METHOD, SYNC_METHOD:
 				cartridge.path = NewNamedFeature(key)
@@ -202,7 +243,6 @@ func (this *Cartridges) fill(rawCartridges []interface{}) {
 			}
 		}
 		*this = append(*this, cartridge)
-		kill.shotsCount++
 		reporter.log(
 			"cartridge: path - %v,  bulletFeatures - %v, chargeFeatures - %v, timeout - %v, children - %v",
 			cartridge.path,
@@ -232,8 +272,26 @@ type Cartridge struct {
 	children       Cartridges
 }
 
-func (this *Cartridge) GetPath() *Feature {
-	return this.path
+func (this *Cartridge) GetMethod() string {
+	return this.path.name
+}
+
+func (this *Cartridge) GetPathAsString() string {
+	return this.path.String()
+}
+
+func (this *Cartridge) GetChildren() Cartridges {
+	if this.path.name == RANDOM_METHOD {
+		for i := range this.children {
+			j := rand.Intn(i + 1)
+			this.children[i], this.children[j] = this.children[j], this.children[i]
+		}
+		return this.children
+	} else if this.path.name == SYNC_METHOD {
+		return this.children
+	} else {
+		return Cartridges{}
+	}
 }
 
 type FeatureKind int
@@ -293,7 +351,12 @@ func (this *Feature) setDescription(rawDescription interface{}) *Feature {
 		description := rawDescription.(string)
 		if configParamRegexp.MatchString(description) {
 			this.description = configParamRegexp.ReplaceAllString(description, "%v")
-			this.units = configParamRegexp.FindAllString(description, -1)
+			this.units = make([]string, 0)
+			for _, submatches := range configParamRegexp.FindAllStringSubmatch(description, -1) {
+				if len(submatches) >= 2 {
+					this.units = append(this.units, submatches[1])
+				}
+			}
 			this.kind = FEATURE_KIND_MULTIPLE
 		} else {
 			this.setSimpleDescription(description)
@@ -316,6 +379,13 @@ func (this *Feature) String() string {
 	if this.kind == FEATURE_KIND_SIMPLE {
 		return fmt.Sprintf("%v", this.description)
 	} else {
-		return ""
+		values := make([]interface{}, len(this.units))
+		for i, unit := range this.units {
+			caliber := gun.findCaliber(unit)
+			if caliber != nil && caliber.feature != nil {
+				values[i] = caliber.feature.String()
+			}
+		}
+		return fmt.Sprintf(this.description.(string), values...)
 	}
 }

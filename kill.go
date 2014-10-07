@@ -11,6 +11,11 @@ import (
 	"net"
 	"strings"
 	"net/url"
+	"mime/multipart"
+	"bytes"
+	"net/http/httputil"
+	"sync"
+	"github.com/cheggaaa/pb"
 )
 
 var (
@@ -71,11 +76,11 @@ func (this *Kill) Start() {
 	// отдаем рутинам все ядра процессора
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	// считаем кол-во результатов
-//	hitCount := this.GunsCount * this.AttemptsCount * this.shotsCount
+	hitCount := this.GunsCount * this.AttemptsCount * this.shotsCount
 
 	// создаем програсс бар
-//	bar := pb.StartNew(hitCount)
-//	group := new(sync.WaitGroup)
+	bar := pb.StartNew(hitCount)
+	group := new(sync.WaitGroup)
 	// создаем канал результатов
 //	hits := make(chan *Hit, hitCount)
 
@@ -83,14 +88,12 @@ func (this *Kill) Start() {
 	// тогда программа сделает одно повторение
 	for i := 0; i < this.AttemptsCount; i++ {
 		reporter.log("attempt - %v", i)
-//		group.Add(hitCount / this.AttemptsCount)
+		group.Add(hitCount / this.AttemptsCount)
 		// запускаем конкуретные задания, если в настройках не указано кол-во заданий,
 		// тогда программа сделает одно задание
 		for j := 0; j < this.GunsCount; j++ {
 
-//			shots := make(chan *Shot, this.shotsCount)
-
-//			bullets := make(chan *target.Bullet, shotCount)
+			shots := make(chan *Shot, this.shotsCount)
 
 			killer := new(Killer)
 			killer.SetVictim(this.victim)
@@ -108,11 +111,12 @@ func (this *Kill) Start() {
 //			SetBullets(bullets).
 //			SetTarget(newTarget)
 //			go killer.Charge()
+			go killer.fire(shots, group, bar)
 			reporter.log("killer - %v charge", j)
-			killer.Charge()
+			go killer.charge(shots)
 		}
 
-//		group.Wait()
+		group.Wait()
 	}
 
 //	close(hits)
@@ -140,7 +144,7 @@ func (this *Killer) SetGun(gun *Gun) {
 	this.gun = gun
 }
 
-func (this *Killer) Charge() {
+func (this *Killer) charge(shots chan *Shot) {
 	options := cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 	}
@@ -150,53 +154,111 @@ func (this *Killer) Charge() {
 	}
 	client := new(http.Client)
 	client.Jar = jar
-	for _, cartridge := range this.gun.Cartridges {
+	this.chargeCartidges(shots, client, this.gun.Cartridges)
+	close(shots)
+}
 
-		var timeout time.Duration
-		if cartridge.timeout > 0 {
-			timeout = cartridge.timeout
+func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, cartridges Cartridges) {
+	for _, cartridge := range cartridges {
+		if cartridge.GetMethod() == RANDOM_METHOD || cartridge.GetMethod() == SYNC_METHOD {
+			this.chargeCartidges(shots, client, cartridge.GetChildren())
 		} else {
-			timeout = kill.Timeout
+			isPostRequest := cartridge.GetMethod() == POST_METHOD
+			var timeout time.Duration
+			if cartridge.timeout > 0 {
+				timeout = cartridge.timeout
+			} else {
+				timeout = kill.Timeout
+			}
+
+			shot := new(Shot)
+			shot.cartridge = cartridge
+			shot.client = client
+			shot.transport = &http.Transport{
+				Dial: func(network, addr string) (conn net.Conn, err error) {
+					return net.DialTimeout(network, addr, time.Second * timeout)
+				},
+				ResponseHeaderTimeout: time.Second * timeout,
+			}
+
+			reqUrl := new(url.URL)
+			reqUrl.Scheme = this.victim.Scheme
+			reqUrl.Host = this.victim.Host
+
+			pathParts := strings.Split(cartridge.GetPathAsString(), "?")
+			reqUrl.Path = pathParts[0]
+			if len(pathParts) == 2 {
+				val, _ := url.ParseQuery(pathParts[1])
+				reqUrl.RawQuery = val.Encode()
+			} else {
+				reqUrl.RawQuery = ""
+			}
+
+			var body bytes.Buffer
+			request, err := http.NewRequest(cartridge.GetMethod(), reqUrl.String(), &body)
+			if err == nil {
+				this.setFeatures(request, this.gun.Features)
+				this.setFeatures(request, cartridge.bulletFeatures)
+				if isPostRequest {
+					if request.Header.Get("Content-Type") == "multipart/form-data" {
+						writer := multipart.NewWriter(&body)
+						for _, feature := range cartridge.chargeFeatures {
+							writer.WriteField(feature.name, feature.String())
+						}
+						writer.Close()
+						request.Header.Set("Content-Type", writer.FormDataContentType())
+					} else {
+						params := url.Values{}
+						for _, feature := range cartridge.chargeFeatures {
+							params.Set(feature.name, feature.String())
+						}
+						body.WriteString(params.Encode())
+					}
+				}
+
+				reporter.log("create request:")
+				if reporter.Debug {
+					dump, _ := httputil.DumpRequest(request, true)
+					reporter.log(string(dump))
+				}
+				shot.request = request
+				shots <- shot
+			} else {
+				reporter.log("request don't created, error: %v", err)
+			}
 		}
+	}
+}
 
-		shot := new(Shot)
-		shot.cartridge = cartridge
-		shot.client = client
-		shot.transport = &http.Transport{
-			Dial: func(network, addr string) (conn net.Conn, err error) {
-				return net.DialTimeout(network, addr, time.Second * timeout)
-			},
-			ResponseHeaderTimeout: time.Second * timeout,
-		}
+func (this *Killer) setFeatures(request *http.Request, features Features) {
+	for _, feature := range features {
+		request.Header.Set(feature.name, feature.String())
+	}
+}
 
-		reqUrl := new(url.URL)
-		reqUrl.Scheme = this.victim.Scheme
-		reqUrl.Host = this.victim.Host
-
-		path := cartridge.GetPath().String()
-		pathParts := strings.Split(path, "?")
-		reqUrl.Path = pathParts[0]
-		if len(pathParts) == 2 {
-			val, _ := url.ParseQuery(pathParts[1])
-			reqUrl.RawQuery = val.Encode()
+func (this *Killer) fire(shots <- chan *Shot, group *sync.WaitGroup, bar *pb.ProgressBar) {
+	for shot := range shots {
+		bar.Increment()
+//		hit := new(Hit)
+//		hit.Shot = bullet.Shot
+//		hit.Request = shots.Request
+//		hit.StartTime = time.Now()
+//		shot.Client.Transport = shots.Transport
+		resp, err := shot.client.Do(shot.request)
+		if err == nil {
+			if reporter.Debug {
+				dump, _ := httputil.DumpResponse(resp, true)
+				reporter.log(string(dump))
+			}
+//			hit.Response = resp
+//			hit.ResponseBody, _ = ioutil.ReadAll(resp.Body)
+			resp.Body.Close()
 		} else {
-			reqUrl.RawQuery = ""
+			//			fmt.Println(err)
 		}
-
-//
-//		var body bytes.Buffer
-//
-//		var writer *multipart.Writer
-//		if shot.IsPost() {
-//			writer = multipart.NewWriter(&body)
-//			for key, value := range shot.Params {
-//				writer.WriteField(key, reflect.ValueOf(value).String())
-//			}
-//			writer.Close()
-//		}
-
-		reporter.log("create request - %v", reqUrl)
-
+//		hit.EndTime = time.Now()
+//		this.hits <- hit
+		group.Done()
 	}
 }
 

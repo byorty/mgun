@@ -23,7 +23,7 @@ func main() {
 
 			victim := mgun.NewVictim()
 			kill := mgun.GetKill()
-			gun := mgun.NewGun()
+			gun := mgun.GetGun()
 			reporter := mgun.GetReporter()
 
 			err := yaml.Unmarshal(bytes, kill)
