@@ -16,6 +16,7 @@ import (
 	"net/http/httputil"
 	"sync"
 	"github.com/cheggaaa/pb"
+	"io/ioutil"
 )
 
 var (
@@ -76,52 +77,42 @@ func (this *Kill) Start() {
 	// отдаем рутинам все ядра процессора
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	// считаем кол-во результатов
-	hitCount := this.GunsCount * this.AttemptsCount * this.shotsCount
+	hitsCount := this.GunsCount * this.AttemptsCount * this.shotsCount
+	reporter.log("hits count: %v", hitsCount)
+	hitsByAttempt := hitsCount / this.AttemptsCount
+	reporter.log("hits by attempt: %v", hitsByAttempt)
 
 	// создаем програсс бар
-	bar := pb.StartNew(hitCount)
+	bar := pb.StartNew(hitsCount)
 	group := new(sync.WaitGroup)
 	// создаем канал результатов
-//	hits := make(chan *Hit, hitCount)
-
+	hits := make(chan *Hit, hitsCount)
+	shots := make(chan *Shot, hitsCount)
 	// запускаем повторения заданий, если в настройках не указано кол-во повторений,
 	// тогда программа сделает одно повторение
 	for i := 0; i < this.AttemptsCount; i++ {
 		reporter.log("attempt - %v", i)
-		group.Add(hitCount / this.AttemptsCount)
+		group.Add(hitsByAttempt)
 		// запускаем конкуретные задания, если в настройках не указано кол-во заданий,
 		// тогда программа сделает одно задание
 		for j := 0; j < this.GunsCount; j++ {
+			go func() {
+				killer := new(Killer)
+				killer.setVictim(this.victim)
+				killer.setGun(this.gun)
 
-			shots := make(chan *Shot, this.shotsCount)
-
-			killer := new(Killer)
-			killer.SetVictim(this.victim)
-			killer.SetGun(this.gun)
-
-//			worker := new(Gun).
-//			SetGroup(group).
-//			SetProgressBar(bar).
-//			SetHits(hits).
-//			SetBullets(bullets).
-//			SetTarget(newTarget)
-//			go worker.Fire()
-//			// создаем запросы
-//			cage := new(Cage).
-//			SetBullets(bullets).
-//			SetTarget(newTarget)
-//			go killer.Charge()
-			go killer.fire(shots, group, bar)
-			reporter.log("killer - %v charge", j)
-			go killer.charge(shots)
+				go killer.fire(hits, shots, group, bar)
+				reporter.log("killer - %v charge", j)
+				go killer.charge(shots)
+			}()
 		}
-
 		group.Wait()
 	}
 
-//	close(hits)
+	close(shots)
+	close(hits)
 	// аггрегируем результаты задания и выводим статистику в консоль
-//	reporter.report(newTarget, hits)
+	reporter.report(this, hits)
 }
 
 type Shot struct {
@@ -136,11 +127,11 @@ type Killer struct {
 	gun    *Gun
 }
 
-func (this *Killer) SetVictim(victim *Victim) {
+func (this *Killer) setVictim(victim *Victim) {
 	this.victim = victim
 }
 
-func (this *Killer) SetGun(gun *Gun) {
+func (this *Killer) setGun(gun *Gun) {
 	this.gun = gun
 }
 
@@ -155,7 +146,6 @@ func (this *Killer) charge(shots chan *Shot) {
 	client := new(http.Client)
 	client.Jar = jar
 	this.chargeCartidges(shots, client, this.gun.Cartridges)
-	close(shots)
 }
 
 func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, cartridges Cartridges) {
@@ -179,6 +169,7 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 					return net.DialTimeout(network, addr, time.Second * timeout)
 				},
 				ResponseHeaderTimeout: time.Second * timeout,
+//				ResponseHeaderTimeout: 0,
 			}
 
 			reqUrl := new(url.URL)
@@ -213,11 +204,15 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 							params.Set(feature.name, feature.String())
 						}
 						body.WriteString(params.Encode())
+						if len(request.Header.Get("Content-Type")) == 0 {
+							request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+						}
 					}
+					request.ContentLength = int64(body.Len())
 				}
 
-				reporter.log("create request:")
 				if reporter.Debug {
+					reporter.log("create request:")
 					dump, _ := httputil.DumpRequest(request, true)
 					reporter.log(string(dump))
 				}
@@ -236,39 +231,37 @@ func (this *Killer) setFeatures(request *http.Request, features Features) {
 	}
 }
 
-func (this *Killer) fire(shots <- chan *Shot, group *sync.WaitGroup, bar *pb.ProgressBar) {
+func (this *Killer) fire(hits chan <- *Hit, shots <- chan *Shot, group *sync.WaitGroup, bar *pb.ProgressBar) {
 	for shot := range shots {
-		bar.Increment()
-//		hit := new(Hit)
-//		hit.Shot = bullet.Shot
-//		hit.Request = shots.Request
-//		hit.StartTime = time.Now()
-//		shot.Client.Transport = shots.Transport
+		hit := new(Hit)
+		hit.shot = shot
+		shot.client.Transport = shot.transport
+		hit.startTime = time.Now()
 		resp, err := shot.client.Do(shot.request)
+		hit.endTime = time.Now()
+		bar.Increment()
 		if err == nil {
 			if reporter.Debug {
 				dump, _ := httputil.DumpResponse(resp, true)
 				reporter.log(string(dump))
 			}
-//			hit.Response = resp
-//			hit.ResponseBody, _ = ioutil.ReadAll(resp.Body)
+			hit.response = resp
+			hit.responseBody, _ = ioutil.ReadAll(resp.Body)
 			resp.Body.Close()
 		} else {
-			//			fmt.Println(err)
+			reporter.log("response don't received, error: %v", err)
 		}
-//		hit.EndTime = time.Now()
-//		this.hits <- hit
+		hits <- hit
 		group.Done()
 	}
 }
 
 type Hit struct {
-	StartTime time.Time
-	EndTime time.Time
-//	Shot *Shot
-	Request *http.Request
-	Response *http.Response
-	ResponseBody []byte
+	startTime time.Time
+	endTime time.Time
+	shot *Shot
+	response *http.Response
+	responseBody []byte
 }
 
 const (

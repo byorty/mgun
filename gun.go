@@ -213,16 +213,16 @@ func (this *Cartridges) UnmarshalYAML(unmarshal func(yaml interface{}) error) er
 
 func (this *Cartridges) fill(rawCartridges []interface{}) {
 	for _, rawCartridge := range rawCartridges {
-		cartridge := new(Cartridge)
+		cartridge := &Cartridge{
+			successStatusCodes: []int{200, 301, 302},
+		}
 		for rawKey, rawValue := range rawCartridge.(map[interface{}]interface{}) {
 			key := rawKey.(string)
 			switch (key) {
 			case GET_METHOD, POST_METHOD, PUT_METHOD, DELETE_METHOD:
-				cartridge.path = NewNamedDescribedFeature(key, rawValue)
 				kill.shotsCount++
-				reporter.ln()
-				reporter.log("shots count: %v", kill.shotsCount)
-				reporter.ln()
+				cartridge.id = kill.shotsCount
+				cartridge.path = NewNamedDescribedFeature(key, rawValue)
 				break;
 			case RANDOM_METHOD, SYNC_METHOD:
 				cartridge.path = NewNamedFeature(key)
@@ -240,6 +240,12 @@ func (this *Cartridges) fill(rawCartridges []interface{}) {
 			case "timeout":
 				cartridge.timeout = time.Duration(rawValue.(int))
 				break;
+//			case "successStatusCodes":
+//				cartridge.timeout = time.Duration(rawValue.(int))
+//				break;
+//			case "failedStatusCodes":
+//				cartridge.timeout = time.Duration(rawValue.(int))
+//				break;
 			}
 		}
 		*this = append(*this, cartridge)
@@ -254,6 +260,18 @@ func (this *Cartridges) fill(rawCartridges []interface{}) {
 	}
 }
 
+func (this Cartridges) toPlainSlice() Cartridges {
+	cartridges := make(Cartridges, 0)
+	for _, cartridge := range this {
+		if cartridge.path.name == RANDOM_METHOD || cartridge.path.name == SYNC_METHOD {
+			cartridges = append(cartridges, cartridge.children.toPlainSlice()...)
+		} else {
+			cartridges = append(cartridges, cartridge)
+		}
+	}
+	return cartridges
+}
+
 const (
 	GET_METHOD     = "GET"
 	POST_METHOD    = "POST"
@@ -265,11 +283,14 @@ const (
 )
 
 type Cartridge struct {
-	path           *Feature
-	bulletFeatures Features
-	chargeFeatures Features
-	timeout        time.Duration
-	children       Cartridges
+	id                 int
+	path               *Feature
+	bulletFeatures     Features
+	chargeFeatures     Features
+	timeout            time.Duration
+	successStatusCodes []int
+	failedStatusCodes  []int
+	children           Cartridges
 }
 
 func (this *Cartridge) GetMethod() string {
@@ -282,6 +303,7 @@ func (this *Cartridge) GetPathAsString() string {
 
 func (this *Cartridge) GetChildren() Cartridges {
 	if this.path.name == RANDOM_METHOD {
+		rand.Seed(time.Now().UnixNano())
 		for i := range this.children {
 			j := rand.Intn(i + 1)
 			this.children[i], this.children[j] = this.children[j], this.children[i]
@@ -315,7 +337,7 @@ func (this *Features) UnmarshalYAML(unmarshal func(yaml interface{}) error) erro
 func (this *Features) fill(rawFeatures map[interface{}]interface{}) {
 	for rawKey, rawValue := range rawFeatures {
 		key := rawKey.(string)
-		value := rawValue.(string)
+		value := fmt.Sprintf("%v", rawValue)
 		*this = append(*this, NewNamedDescribedFeature(key, value))
 	}
 }
