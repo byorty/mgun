@@ -1,4 +1,4 @@
-package mgun
+package lib
 
 import (
 	"fmt"
