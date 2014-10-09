@@ -38,20 +38,20 @@ func (this *Reporter) ln() {
 
 func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 	var startTime int64
-	var endTime int64
+	var endTime   int64
 	requestsPerSeconds := make(map[int64]map[int]int)
 	reports := make(map[int]*ShotReport)
 	hitsTable := tm.NewTable(0, 0, 2, ' ', 0)
 	fmt.Fprintf(hitsTable, "#\tRequest\tCompl.\tFail.\tMin.\tMax.\tAvg.\tAvail.\tReq. per sec.\tContent len.\tTotal trans.\n")
 	for hit := range hits {
-		if startTime < 0 {
+		if startTime == 0 {
 			startTime = hit.startTime.Unix()
 		} else {
-//			startTime = math.Min(startTime, hit.startTime.Unix())
+			startTime = mathutil.MinInt64(startTime, hit.startTime.Unix())
 		}
 		key := hit.shot.cartridge.id
 		if report, ok := reports[key]; ok {
-			report.Update(hit)
+			report.update(hit)
 		} else {
 			report := NewShotReport(hit)
 			reports[key] = report
@@ -67,20 +67,18 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 		if endTime < 0 {
 			endTime = hit.endTime.Unix()
 		} else {
-//			endTime = math.Max(endTime, hit.endTime.Unix())
+			endTime = mathutil.MaxInt64(endTime, hit.endTime.Unix())
 		}
 	}
 
-//	fmt.Println(requestsPerSeconds)
+	var totalRequests          int
+	var completeRequests       int
+	var failedRequests         int
+	var availability           float64
+	var totalRequestPerSeconds float64
+	var totalTransferred       int64
 
 	reportsCount := float64(len(reports))
-	var totalRequests int
-	var completeRequests int
-	var failedRequests int
-	var availability float64
-	var totalRequestPerSeconds float64
-	var totalTransferred int64
-
 	cartridges := kill.gun.Cartridges.toPlainSlice()
 	for _, cartridge := range cartridges {
 
@@ -91,33 +89,48 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 					counts = append(counts, count)
 				}
 			}
-			var requestPerSecond float64
+			var minRequestPerSecond int64
+			var avgRequestPerSecond float64
+			var maxRequestPerSecond int64
 			for _, count := range counts {
-				requestPerSecond += float64(count)
+				count64 := int64(count)
+				if minRequestPerSecond == 0 {
+					minRequestPerSecond = count64
+				} else {
+					minRequestPerSecond = mathutil.MinInt64(minRequestPerSecond, count64)
+				}
+				avgRequestPerSecond += float64(count)
+				if maxRequestPerSecond == 0 {
+					maxRequestPerSecond = count64
+				} else {
+					maxRequestPerSecond = mathutil.MaxInt64(maxRequestPerSecond, count64)
+				}
 			}
-			requestPerSecond = requestPerSecond / float64(len(counts))
+			avgRequestPerSecond = avgRequestPerSecond / float64(len(counts))
 
 			name := this.getRequestName(cartridge)
-			totalRequests += report.TotalRequests
-			completeRequests += report.CompleteRequests
-			failedRequests += report.FailedRequests
-			availability += report.GetAvailability()
-			totalTransferred += report.TotalTransferred
-			totalRequestPerSeconds += requestPerSecond
+			totalRequests += report.totalRequests
+			completeRequests += report.completeRequests
+			failedRequests += report.failedRequests
+			availability += report.getAvailability()
+			totalTransferred += report.totalTransferred
+			totalRequestPerSeconds += avgRequestPerSecond
 
 			fmt.Fprintf(
-				hitsTable, "%d.\t%s\t%d\t%d\t%.3fs.\t%.3fs.\t%.3fs.\t%.2f%%\t~ %.2f\t%s\t%s\n",
+				hitsTable, "%d.\t%s\t%d\t%d\t%.3fs.\t%.3fs.\t%.3fs.\t%.2f%%\t%d / %.2f / %d\t%s\t%s\n",
 				cartridge.id,
 				name,
-				report.CompleteRequests,
-				report.FailedRequests,
-				report.MinTime,
-				report.MaxTime,
-				report.GetAvgTime(),
-				report.GetAvailability(),
-				requestPerSecond,
-				hm.Bytes(uint64(report.ContentLength)),
-				hm.Bytes(uint64(report.TotalTransferred)),
+				report.completeRequests,
+				report.failedRequests,
+				report.minTime,
+				report.maxTime,
+				report.getAvgTime(),
+				report.getAvailability(),
+				minRequestPerSecond,
+				avgRequestPerSecond,
+				maxRequestPerSecond,
+				hm.Bytes(uint64(report.contentLength)),
+				hm.Bytes(uint64(report.totalTransferred)),
 			)
 		}
 	}
@@ -128,7 +141,7 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 	fmt.Fprintf(targetTable, "Concurrency Level:\t%d\n", kill.GunsCount)
 	fmt.Fprintf(targetTable, "Loop count:\t%d\n", kill.AttemptsCount)
 	fmt.Fprintf(targetTable, "Timeout:\t%d seconds\n", kill.Timeout)
-	fmt.Fprintf(targetTable, "Time taken for tests:\t%.3f seconds\n", endTime.Sub(startTime).Seconds())
+	fmt.Fprintf(targetTable, "Time taken for tests:\t%.3f seconds\n", float64(time.Unix(endTime, 0).Sub(time.Unix(startTime, 0)).Seconds()))
 	fmt.Fprintf(targetTable, "Total requests:\t%d\n", totalRequests)
 	fmt.Fprintf(targetTable, "Complete requests:\t%d\n", completeRequests)
 	fmt.Fprintf(targetTable, "Failed requests:\t%d\n", failedRequests)
@@ -143,7 +156,7 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 }
 
 func (this *Reporter) getRequestName(cartridge *Cartridge) string {
-	return fmt.Sprintf("%s %s", cartridge.GetMethod(), cartridge.GetPathAsString())
+	return fmt.Sprintf("%s %s", cartridge.getMethod(), cartridge.path.rawDescription)
 }
 
 func NewShotReport(hit *Hit) *ShotReport {
@@ -151,24 +164,24 @@ func NewShotReport(hit *Hit) *ShotReport {
 }
 
 type ShotReport struct {
-	TotalRequests     int
+	totalRequests     int
 	startTime         time.Time
 	endTime           time.Time
-	MinTime           float64
-	MaxTime           float64
-	CompleteRequests  int
-	FailedRequests    int
+	minTime           float64
+	maxTime           float64
+	completeRequests  int
+	failedRequests    int
 	requestsPerSecond float64
-	TotalTransferred  int64
-	TotalTime         float64
-	ContentLength     int64
+	totalTransferred  int64
+	totalTime         float64
+	contentLength     int64
 }
 
 func (this *ShotReport) create(hit *Hit) *ShotReport {
 	timeRequest := this.getDiffSeconds(hit)
-	this.MinTime = timeRequest
-	this.MaxTime = timeRequest
-	this.TotalTime = timeRequest
+	this.minTime = timeRequest
+	this.maxTime = timeRequest
+	this.totalTime = timeRequest
 	this.updateTotalRequests()
 	this.updateTotalTransferred(hit)
 	this.checkResponseStatusCode(hit)
@@ -186,14 +199,14 @@ func (this *ShotReport) checkResponseStatusCode(hit *Hit) {
 	if hit.shot.request != nil && hit.response != nil {
 		statusCode := hit.response.StatusCode
 		if this.inArray(statusCode, shot.cartridge.failedStatusCodes) {
-			this.FailedRequests++
+			this.failedRequests++
 		} else if this.inArray(statusCode, shot.cartridge.successStatusCodes) {
-			this.CompleteRequests++
+			this.completeRequests++
 		} else {
-			this.FailedRequests++
+			this.failedRequests++
 		}
 	} else {
-		this.FailedRequests++
+		this.failedRequests++
 	}
 }
 
@@ -207,14 +220,14 @@ func (this *ShotReport) inArray(a int, array []int) bool {
 }
 
 func (this *ShotReport) updateTotalRequests() {
-	this.TotalRequests++
+	this.totalRequests++
 }
 
 func (this *ShotReport) updateTotalTransferred(hit *Hit) {
 	if hit.response != nil {
-		this.TotalTransferred += int64(len(hit.responseBody))
-		if this.ContentLength == 0 {
-			this.ContentLength = this.TotalTransferred
+		this.totalTransferred += int64(len(hit.responseBody))
+		if this.contentLength == 0 {
+			this.contentLength = this.totalTransferred
 		}
 	}
 }
@@ -231,11 +244,11 @@ func (this *ShotReport) updateRequestsPerSecond(timeRequest float64) {
 	reporter.log("time request: %v, requests per second: %v, avg requests per second: %v", timeRequest, 1 / timeRequest, this.requestsPerSecond)
 }
 
-func (this *ShotReport) Update(hit *Hit) *ShotReport {
+func (this *ShotReport) update(hit *Hit) *ShotReport {
 	timeRequest := this.getDiffSeconds(hit)
-	this.MinTime = math.Min(this.MinTime, timeRequest)
-	this.MaxTime = math.Max(this.MaxTime, timeRequest)
-	this.TotalTime += timeRequest
+	this.minTime = math.Min(this.minTime, timeRequest)
+	this.maxTime = math.Max(this.maxTime, timeRequest)
+	this.totalTime += timeRequest
 	this.updateTotalRequests()
 	this.updateTotalTransferred(hit)
 	this.checkResponseStatusCode(hit)
@@ -243,10 +256,10 @@ func (this *ShotReport) Update(hit *Hit) *ShotReport {
 	return this
 }
 
-func (this *ShotReport) GetAvgTime() float64 {
-	return (this.MinTime + this.MaxTime) / 2
+func (this *ShotReport) getAvgTime() float64 {
+	return (this.minTime + this.maxTime) / 2
 }
 
-func (this *ShotReport) GetAvailability() float64 {
-	return float64(this.CompleteRequests) * 100 / float64(this.TotalRequests)
+func (this *ShotReport) getAvailability() float64 {
+	return float64(this.completeRequests) * 100 / float64(this.totalRequests)
 }

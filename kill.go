@@ -88,12 +88,14 @@ func (this *Kill) Start() {
 	// создаем канал результатов
 	hits := make(chan *Hit, hitsCount)
 	shots := make(chan *Shot, hitsCount)
-	// запускаем повторения заданий, если в настройках не указано кол-во повторений,
+	// запускаем повторения заданий,
+	// если в настройках не указано кол-во повторений,
 	// тогда программа сделает одно повторение
 	for i := 0; i < this.AttemptsCount; i++ {
 		reporter.log("attempt - %v", i)
 		group.Add(hitsByAttempt)
-		// запускаем конкуретные задания, если в настройках не указано кол-во заданий,
+		// запускаем конкуретные задания,
+		// если в настройках не указано кол-во заданий,
 		// тогда программа сделает одно задание
 		for j := 0; j < this.GunsCount; j++ {
 			go func() {
@@ -117,14 +119,15 @@ func (this *Kill) Start() {
 
 type Shot struct {
 	cartridge *Cartridge
-	request *http.Request
-	client *http.Client
+	request   *http.Request
+	client    *http.Client
 	transport *http.Transport
 }
 
 type Killer struct {
-	victim *Victim
-	gun    *Gun
+	victim  *Victim
+	gun     *Gun
+	session *Caliber
 }
 
 func (this *Killer) setVictim(victim *Victim) {
@@ -150,10 +153,10 @@ func (this *Killer) charge(shots chan *Shot) {
 
 func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, cartridges Cartridges) {
 	for _, cartridge := range cartridges {
-		if cartridge.GetMethod() == RANDOM_METHOD || cartridge.GetMethod() == SYNC_METHOD {
-			this.chargeCartidges(shots, client, cartridge.GetChildren())
+		if cartridge.getMethod() == RANDOM_METHOD || cartridge.getMethod() == SYNC_METHOD {
+			this.chargeCartidges(shots, client, cartridge.getChildren())
 		} else {
-			isPostRequest := cartridge.GetMethod() == POST_METHOD
+			isPostRequest := cartridge.getMethod() == POST_METHOD
 			var timeout time.Duration
 			if cartridge.timeout > 0 {
 				timeout = cartridge.timeout
@@ -169,14 +172,13 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 					return net.DialTimeout(network, addr, time.Second * timeout)
 				},
 				ResponseHeaderTimeout: time.Second * timeout,
-//				ResponseHeaderTimeout: 0,
 			}
 
 			reqUrl := new(url.URL)
 			reqUrl.Scheme = this.victim.Scheme
 			reqUrl.Host = this.victim.Host
 
-			pathParts := strings.Split(cartridge.GetPathAsString(), "?")
+			pathParts := strings.Split(cartridge.getPathAsString(this), "?")
 			reqUrl.Path = pathParts[0]
 			if len(pathParts) == 2 {
 				val, _ := url.ParseQuery(pathParts[1])
@@ -186,7 +188,7 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 			}
 
 			var body bytes.Buffer
-			request, err := http.NewRequest(cartridge.GetMethod(), reqUrl.String(), &body)
+			request, err := http.NewRequest(cartridge.getMethod(), reqUrl.String(), &body)
 			if err == nil {
 				this.setFeatures(request, this.gun.Features)
 				this.setFeatures(request, cartridge.bulletFeatures)
@@ -194,14 +196,14 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 					if request.Header.Get("Content-Type") == "multipart/form-data" {
 						writer := multipart.NewWriter(&body)
 						for _, feature := range cartridge.chargeFeatures {
-							writer.WriteField(feature.name, feature.String())
+							writer.WriteField(feature.name, feature.String(this))
 						}
 						writer.Close()
 						request.Header.Set("Content-Type", writer.FormDataContentType())
 					} else {
 						params := url.Values{}
 						for _, feature := range cartridge.chargeFeatures {
-							params.Set(feature.name, feature.String())
+							params.Set(feature.name, feature.String(this))
 						}
 						body.WriteString(params.Encode())
 						if len(request.Header.Get("Content-Type")) == 0 {
@@ -227,7 +229,7 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 
 func (this *Killer) setFeatures(request *http.Request, features Features) {
 	for _, feature := range features {
-		request.Header.Set(feature.name, feature.String())
+		request.Header.Set(feature.name, feature.String(this))
 	}
 }
 
@@ -257,10 +259,10 @@ func (this *Killer) fire(hits chan <- *Hit, shots <- chan *Shot, group *sync.Wai
 }
 
 type Hit struct {
-	startTime time.Time
-	endTime time.Time
-	shot *Shot
-	response *http.Response
+	startTime    time.Time
+	endTime      time.Time
+	shot         *Shot
+	response     *http.Response
 	responseBody []byte
 }
 
