@@ -42,7 +42,7 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 	requestsPerSeconds := make(map[int64]map[int]int)
 	reports := make(map[int]*ShotReport)
 	hitsTable := tm.NewTable(0, 0, 2, ' ', 0)
-	fmt.Fprintf(hitsTable, "#\tRequest\tCompl.\tFail.\tMin.\tMax.\tAvg.\tAvail.\tReq. per sec.\tContent len.\tTotal trans.\n")
+	fmt.Fprintf(hitsTable, "#\tRequest\tCompl.\tFail.\tMin.\tMax.\tAvg.\tAvail.\tMin, avg, max req. per sec.\tContent len.\tTotal trans.\n")
 	for hit := range hits {
 		if startTime == 0 {
 			startTime = hit.startTime.Unix()
@@ -117,7 +117,7 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 			totalRequestPerSeconds += avgRequestPerSecond
 
 			fmt.Fprintf(
-				hitsTable, "%d.\t%s\t%d\t%d\t%.3fs.\t%.3fs.\t%.3fs.\t%.2f%%\t%d / %.2f / %d\t%s\t%s\n",
+				hitsTable, "%d.\t%s\t%d\t%d\t%.3fs.\t%.3fs.\t%.3fs.\t%.2f%%\t%d / ~ %.2f / %d\t%s\t%s\n",
 				cartridge.id,
 				name,
 				report.completeRequests,
@@ -141,7 +141,7 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 	fmt.Fprintf(targetTable, "Concurrency Level:\t%d\n", kill.GunsCount)
 	fmt.Fprintf(targetTable, "Loop count:\t%d\n", kill.AttemptsCount)
 	fmt.Fprintf(targetTable, "Timeout:\t%d seconds\n", kill.Timeout)
-	fmt.Fprintf(targetTable, "Time taken for tests:\t%.3f seconds\n", float64(time.Unix(endTime, 0).Sub(time.Unix(startTime, 0)).Seconds()))
+	fmt.Fprintf(targetTable, "Time taken for tests:\t%d seconds\n", int(time.Unix(endTime, 0).Sub(time.Unix(startTime, 0)).Seconds()))
 	fmt.Fprintf(targetTable, "Total requests:\t%d\n", totalRequests)
 	fmt.Fprintf(targetTable, "Complete requests:\t%d\n", completeRequests)
 	fmt.Fprintf(targetTable, "Failed requests:\t%d\n", failedRequests)
