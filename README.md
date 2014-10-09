@@ -31,11 +31,10 @@ Mgun написан на Go, поэтому для начала необходи
 ### Загрузка и установка из исходников
 
     cd /path/to/gopath
-    export GOPATH=/path/to/gopath
-    export GOBIN=/path/to/gopath/bin
+    export GOPATH=/path/to/gopath/
+    export GOBIN=/path/to/gopath/bin/
     go get github.com/byorty/mgun
-    go get gopkg.in/yaml.v2
-    go install src/github.com/byorty/mgun/cmd/mgun.go
+    go install src/github.com/byorty/mgun/mgun.go
 
 ### Запуск
 
