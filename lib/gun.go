@@ -418,8 +418,9 @@ func (this *Feature) String(killer *Killer) string {
 	} else {
 		values := make([]interface{}, len(this.units))
 		for i, unit := range this.units {
+			reporter.log("find caliber by unit - %v", unit)
 			caliber := gun.findCaliber(unit)
-			if caliber.kind == CALIBER_KIND_SESSION {
+			if caliber != nil && caliber.kind == CALIBER_KIND_SESSION {
 				if killer.session == nil {
 					calibers := caliber.feature.description.(CaliberList)
 					rand.Seed(time.Now().UnixNano())
