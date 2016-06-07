@@ -250,7 +250,7 @@ func (this *Killer) fire(hits chan <- *Hit, shots <- chan *Shot, group *sync.Wai
 			}
 			hit.response = resp
 			hit.responseBody, _ = ioutil.ReadAll(resp.Body)
-			resp.Body.Close()
+			defer resp.Body.Close()
 		} else {
 			reporter.log("response don't received, error: %v", err)
 		}
