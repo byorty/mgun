@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"runtime"
 	"net/http"
-	"code.google.com/p/go.net/publicsuffix"
 	"net/http/cookiejar"
 	"net"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"sync"
 	"github.com/cheggaaa/pb"
 	"io/ioutil"
+	"golang.org/x/net/publicsuffix"
 )
 
 var (
