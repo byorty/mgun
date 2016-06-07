@@ -1,0 +1,25 @@
+concurrency: 1
+#concurrency: 100
+#loopCount: 500
+loopCount: 1
+scheme: https
+host: binatex.com
+#host: xa.us.to
+#host: solomonov.adnwb.ru
+#port: 4321
+#timeout: 30
+
+requests:
+  - GET: /
+#  - RANDOM:
+#    - GET: /getBalance/1/1
+#    - GET: /getBalance/1/2
+#  - GET: /getBalance/1/2
+#  - RANDOM:
+#  - POST: /moveAmount
+#    params:
+#      fromUserId: 1
+#      toUserId: ${toUsersIds}
+#      currencyId: 1
+#      amount: ${amount}
+
