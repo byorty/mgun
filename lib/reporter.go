@@ -39,12 +39,10 @@ func (this *Reporter) ln() {
 func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 	var startTime int64
 	var endTime   int64
-	var lastTime  time.Time
-	var i         int
-	requestsPerSeconds := make(map[int]map[int]int)
+	requestsPerSeconds := make(map[int64]map[int]int)
 	reports := make(map[int]*ShotReport)
 	hitsTable := tm.NewTable(0, 0, 2, ' ', 0)
-	fmt.Fprintf(hitsTable, "#\tRequest\tCompl.\tFail.\tMin.\tMax.\tAvg.\tAvail.\tMin, avg, max rps.\tContent len.\tTotal trans.\n")
+	fmt.Fprintf(hitsTable, "#\tRequest\tCompl.\tFail.\tMin.\tMax.\tAvg.\tAvail.\tMin, avg, max req. per sec.\tContent len.\tTotal trans.\n")
 	for hit := range hits {
 		if startTime == 0 {
 			startTime = hit.startTime.Unix()
@@ -59,16 +57,11 @@ func (this *Reporter) report(kill *Kill, hits <- chan *Hit) {
 			reports[key] = report
 		}
 
-		if hit.startTime.Sub(lastTime) >= time.Second {
-			lastTime = hit.endTime
-			i++
-		}
-
-		if _, ok := requestsPerSeconds[i]; ok {
-			requestsPerSeconds[i][hit.shot.cartridge.id]++
+		if _, ok := requestsPerSeconds[hit.endTime.Unix()]; ok {
+			requestsPerSeconds[hit.endTime.Unix()][hit.shot.cartridge.id]++
 		} else {
-			requestsPerSeconds[i] = make(map[int]int)
-			requestsPerSeconds[i][hit.shot.cartridge.id] = 1
+			requestsPerSeconds[hit.endTime.Unix()] = make(map[int]int)
+			requestsPerSeconds[hit.endTime.Unix()][hit.shot.cartridge.id] = 1
 		}
 
 		if endTime < 0 {
