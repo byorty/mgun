@@ -79,6 +79,14 @@ requests:
         friend_id: ${session.friendIds}
         say: ${say}
 
+    #
+    - POST: /json/data/receiver
+      params:
+        raw_body: |
+          {"token":"ololo","key_id":"trololo"}
+      headers:
+          Content-type: application/json
+
     # SYNC - в этой группе выполнятся все запросы в том порядке, в котором заданы. SYNC может находится как внутри RANDOM, так и во вне ее
     - SYNC:
       - GET: /some/path?query=2

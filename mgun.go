@@ -4,7 +4,7 @@ import (
 	"flag"
 	"io/ioutil"
 	"fmt"
-	"github.com/byorty/mgun/lib"
+	"./lib"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -21,7 +21,6 @@ func main() {
 			victim := lib.NewVictim()
 			gun := lib.GetGun()
 			reporter := lib.GetReporter()
-
 			err := yaml.Unmarshal(bytes, kill)
 			if err == nil {
 				err = yaml.Unmarshal(bytes, victim)
