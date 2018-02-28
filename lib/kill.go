@@ -230,9 +230,7 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
                         break
 
                     }
-                    defer request.Body.Close()
 					request.ContentLength = int64(body.Len())
-
                 }
 
 				if reporter.Debug {
