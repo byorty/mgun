@@ -207,7 +207,7 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
                         }
                         writer.Close()
                         request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
-                        request.Header.Set("Content-Type", writer.FormDataContentType())\
+                        request.Header.Set("Content-Type", writer.FormDataContentType())
                         break
                     case "application/json":
                         for _, feature := range cartridge.chargeFeatures {
