@@ -79,7 +79,7 @@ requests:
         friend_id: ${session.friendIds}
         say: ${say}
 
-    #
+    # to send raw json body you have to specify request's raw_body in params AND set content-type headers to application/json
     - POST: /json/data/receiver
       params:
         raw_body: |
