@@ -23,6 +23,9 @@ var (
 	kill = &Kill{shotsCount: 0}
 )
 
+
+
+
 type Kill struct {
 	shotsCount    int
 	GunsCount     int           `yaml:"concurrency"`
@@ -152,7 +155,8 @@ func (this *Killer) charge(shots chan *Shot) {
 }
 
 func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, cartridges Cartridges) {
-	for _, cartridge := range cartridges {
+
+    for _, cartridge := range cartridges {
 		if cartridge.getMethod() == RANDOM_METHOD || cartridge.getMethod() == SYNC_METHOD {
 			this.chargeCartidges(shots, client, cartridge.getChildren())
 		} else {
@@ -194,31 +198,47 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 				this.setFeatures(request, this.gun.Features)
 				this.setFeatures(request, cartridge.bulletFeatures)
 				if isPostRequest {
-					if request.Header.Get("Content-Type") == "multipart/form-data" {
-						writer := multipart.NewWriter(&body)
-						for _, feature := range cartridge.chargeFeatures {
-							writer.WriteField(feature.name, feature.String(this))
-						}
-						writer.Close()
-						request.Header.Set("Content-Type", writer.FormDataContentType())
-					} else {
-						params := url.Values{}
-						for _, feature := range cartridge.chargeFeatures {
-							params.Set(feature.name, feature.String(this))
-						}
-						body.WriteString(params.Encode())
-						if len(request.Header.Get("Content-Type")) == 0 {
-							request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-						}
-					}
+
+                    switch request.Header.Get("Content-Type") {
+                    case "multipart/form-data":
+                        writer := multipart.NewWriter(&body)
+                        for _, feature := range cartridge.chargeFeatures {
+                            writer.WriteField(feature.name, feature.String(this))
+                        }
+                        writer.Close()
+                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+                        request.Header.Set("Content-Type", writer.FormDataContentType())\
+                        break
+                    case "application/json":
+                        for _, feature := range cartridge.chargeFeatures {
+                            if feature.name == "raw_body" {
+                                body.WriteString(feature.String(this))
+                            }
+                        }
+                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+                        request.Header.Set("Content-Type", "application/json")
+                        break
+                    default:
+                        params := url.Values{}
+                        for _, feature := range cartridge.chargeFeatures {
+                            params.Set(feature.name, feature.String(this))
+                        }
+                        body.WriteString(params.Encode())
+                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+                        if len(request.Header.Get("Content-Type")) == 0 {
+                            request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+                        }
+                        break
+
+                    }
 					request.ContentLength = int64(body.Len())
-				}
+                }
 
 				if reporter.Debug {
 					reporter.log("create request:")
 					dump, _ := httputil.DumpRequest(request, true)
 					reporter.log(string(dump))
-				}
+                }
 				shot.request = request
 				shots <- shot
 			} else {
