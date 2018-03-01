@@ -206,8 +206,8 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
                             writer.WriteField(feature.name, feature.String(this))
                         }
                         writer.Close()
-                        request.Header.Set("Content-Type", writer.FormDataContentType())
-
+                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+                        request.Header.Set("Content-Type", writer.FormDataContentType())\
                         break
                     case "application/json":
                         for _, feature := range cartridge.chargeFeatures {
@@ -224,6 +224,7 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
                             params.Set(feature.name, feature.String(this))
                         }
                         body.WriteString(params.Encode())
+                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
                         if len(request.Header.Get("Content-Type")) == 0 {
                             request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
                         }
