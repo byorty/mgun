@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/thefish/mgun/lib"
+	"github.com/byorty/mgun/lib"
 	yaml "gopkg.in/yaml.v2"
 	"io/ioutil"
 )
