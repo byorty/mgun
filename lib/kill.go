@@ -1,30 +1,27 @@
 package lib
 
 import (
-	"time"
+	"bytes"
 	"errors"
 	"fmt"
-	"runtime"
+	"github.com/cheggaaa/pb"
+	"golang.org/x/net/publicsuffix"
+	"io/ioutil"
+	"mime/multipart"
+	"net"
 	"net/http"
 	"net/http/cookiejar"
-	"net"
-	"strings"
-	"net/url"
-	"mime/multipart"
-	"bytes"
 	"net/http/httputil"
+	"net/url"
+	"runtime"
+	"strings"
 	"sync"
-	"github.com/cheggaaa/pb"
-	"io/ioutil"
-	"golang.org/x/net/publicsuffix"
+	"time"
 )
 
 var (
 	kill = &Kill{shotsCount: 0}
 )
-
-
-
 
 type Kill struct {
 	shotsCount    int
@@ -154,9 +151,9 @@ func (this *Killer) charge(shots chan *Shot) {
 	this.chargeCartidges(shots, client, this.gun.Cartridges)
 }
 
-func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, cartridges Cartridges) {
+func (this *Killer) chargeCartidges(shots chan<- *Shot, client *http.Client, cartridges Cartridges) {
 
-    for _, cartridge := range cartridges {
+	for _, cartridge := range cartridges {
 		if cartridge.getMethod() == RANDOM_METHOD || cartridge.getMethod() == SYNC_METHOD {
 			this.chargeCartidges(shots, client, cartridge.getChildren())
 		} else {
@@ -173,10 +170,10 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 			shot.client = client
 			shot.transport = &http.Transport{
 				Dial: func(network, addr string) (conn net.Conn, err error) {
-					return net.DialTimeout(network, addr, time.Second * timeout)
+					return net.DialTimeout(network, addr, time.Second*timeout)
 				},
 				ResponseHeaderTimeout: time.Second * timeout,
-				DisableKeepAlives: true,
+				DisableKeepAlives:     true,
 			}
 
 			reqUrl := new(url.URL)
@@ -199,46 +196,46 @@ func (this *Killer) chargeCartidges(shots chan <- *Shot, client *http.Client, ca
 				this.setFeatures(request, cartridge.bulletFeatures)
 				if isPostRequest {
 
-                    switch request.Header.Get("Content-Type") {
-                    case "multipart/form-data":
-                        writer := multipart.NewWriter(&body)
-                        for _, feature := range cartridge.chargeFeatures {
-                            writer.WriteField(feature.name, feature.String(this))
-                        }
-                        writer.Close()
-                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
-                        request.Header.Set("Content-Type", writer.FormDataContentType())
-                        break
-                    case "application/json":
-                        for _, feature := range cartridge.chargeFeatures {
-                            if feature.name == "raw_body" {
-                                body.WriteString(feature.String(this))
-                            }
-                        }
-                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
-                        request.Header.Set("Content-Type", "application/json")
-                        break
-                    default:
-                        params := url.Values{}
-                        for _, feature := range cartridge.chargeFeatures {
-                            params.Set(feature.name, feature.String(this))
-                        }
-                        body.WriteString(params.Encode())
-                        request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
-                        if len(request.Header.Get("Content-Type")) == 0 {
-                            request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
-                        }
-                        break
+					switch request.Header.Get("Content-Type") {
+					case "multipart/form-data":
+						writer := multipart.NewWriter(&body)
+						for _, feature := range cartridge.chargeFeatures {
+							writer.WriteField(feature.name, feature.String(this))
+						}
+						writer.Close()
+						request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+						request.Header.Set("Content-Type", writer.FormDataContentType())
+						break
+					case "application/json":
+						for _, feature := range cartridge.chargeFeatures {
+							if feature.name == "raw_body" {
+								body.WriteString(feature.String(this))
+							}
+						}
+						request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+						request.Header.Set("Content-Type", "application/json")
+						break
+					default:
+						params := url.Values{}
+						for _, feature := range cartridge.chargeFeatures {
+							params.Set(feature.name, feature.String(this))
+						}
+						body.WriteString(params.Encode())
+						request.Body = ioutil.NopCloser(bytes.NewReader(body.Bytes()))
+						if len(request.Header.Get("Content-Type")) == 0 {
+							request.Header.Set("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+						}
+						break
 
-                    }
+					}
 					request.ContentLength = int64(body.Len())
-                }
+				}
 
 				if reporter.Debug {
 					reporter.log("create request:")
 					dump, _ := httputil.DumpRequest(request, true)
 					reporter.log(string(dump))
-                }
+				}
 				shot.request = request
 				shots <- shot
 			} else {
@@ -254,7 +251,7 @@ func (this *Killer) setFeatures(request *http.Request, features Features) {
 	}
 }
 
-func (this *Killer) fire(hits chan <- *Hit, shots <- chan *Shot, group *sync.WaitGroup, bar *pb.ProgressBar) {
+func (this *Killer) fire(hits chan<- *Hit, shots <-chan *Shot, group *sync.WaitGroup, bar *pb.ProgressBar) {
 	for shot := range shots {
 		hit := new(Hit)
 		hit.shot = shot
@@ -288,7 +285,7 @@ type Hit struct {
 }
 
 const (
-	HTTP_SCHEME = "http"
+	HTTP_SCHEME  = "http"
 	HTTPS_SCHEME = "https"
 )
 
