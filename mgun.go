@@ -2,10 +2,10 @@ package main
 
 import (
 	"flag"
-	"io/ioutil"
 	"fmt"
-	"./lib"
+	"github.com/thefish/mgun/lib"
 	yaml "gopkg.in/yaml.v2"
+	"io/ioutil"
 )
 
 func main() {
